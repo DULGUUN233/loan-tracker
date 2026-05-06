@@ -491,6 +491,105 @@ document.querySelectorAll('.chip.period').forEach(c => {
   });
 });
 
+// ========== APP CODES ==========
+let codes = [];
+let codeSearch = '';
+let revealed = new Set();
+
+async function fetchCodes() {
+  const r = await fetch('/api/codes');
+  codes = await r.json();
+  renderCodes();
+}
+
+function renderCodes() {
+  const list = document.getElementById('codesList');
+  const empty = document.getElementById('codesEmpty');
+  const q = codeSearch.trim().toLowerCase();
+  const shown = q
+    ? codes.filter(c => (c.appName + ' ' + c.username + ' ' + c.note).toLowerCase().includes(q))
+    : codes;
+  if (shown.length === 0) { list.innerHTML = ''; empty.classList.add('show'); return; }
+  empty.classList.remove('show');
+  list.innerHTML = shown.map(c => {
+    const isRev = revealed.has(c._id);
+    const masked = '•'.repeat(Math.min(c.code.length, 12));
+    return `<div class="code-card">
+      <div class="code-head">
+        <div class="code-name">
+          <span class="code-icon">${escapeHtml(c.appName.charAt(0).toUpperCase())}</span>
+          ${escapeHtml(c.appName)}
+        </div>
+        <div class="code-actions">
+          <button data-act="reveal" data-id="${c._id}" title="${isRev ? 'Нуух' : 'Харах'}">${isRev ? '🙈' : '👁'}</button>
+          <button data-act="copy" data-id="${c._id}" title="Хуулах">📋</button>
+          <button class="del" data-act="del-code" data-id="${c._id}" title="Устгах">✕</button>
+        </div>
+      </div>
+      ${c.username ? `<div class="code-row">
+        <span class="lbl">User</span>
+        <span class="val">${escapeHtml(c.username)}</span>
+      </div>` : ''}
+      <div class="code-row">
+        <span class="lbl">Code</span>
+        <span class="val ${isRev ? '' : 'masked'}">${isRev ? escapeHtml(c.code) : masked}</span>
+      </div>
+      ${c.note ? `<div class="code-row note">${escapeHtml(c.note)}</div>` : ''}
+    </div>`;
+  }).join('');
+}
+
+function showToast(msg) {
+  let toast = document.getElementById('copyToast');
+  if (!toast) {
+    toast = document.createElement('div');
+    toast.id = 'copyToast';
+    toast.className = 'copy-toast';
+    document.body.appendChild(toast);
+  }
+  toast.textContent = msg;
+  toast.classList.add('show');
+  clearTimeout(toast._t);
+  toast._t = setTimeout(() => toast.classList.remove('show'), 1500);
+}
+
+document.getElementById('codeForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  const fd = new FormData(e.target);
+  const data = Object.fromEntries(fd);
+  await fetch('/api/codes', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data)
+  });
+  e.target.reset();
+  fetchCodes();
+});
+
+document.getElementById('codesList').addEventListener('click', async e => {
+  const btn = e.target.closest('button[data-act]');
+  if (!btn) return;
+  const id = btn.dataset.id;
+  const c = codes.find(x => x._id === id);
+  if (btn.dataset.act === 'reveal') {
+    if (revealed.has(id)) revealed.delete(id); else revealed.add(id);
+    renderCodes();
+  } else if (btn.dataset.act === 'copy') {
+    await navigator.clipboard.writeText(c.code);
+    showToast('✓ Хуулсан');
+  } else if (btn.dataset.act === 'del-code') {
+    if (!confirm(`"${c.appName}" код устгах уу?`)) return;
+    await fetch('/api/codes/' + id, { method: 'DELETE' });
+    revealed.delete(id);
+    fetchCodes();
+  }
+});
+
+document.getElementById('codeSearch').addEventListener('input', e => {
+  codeSearch = e.target.value;
+  renderCodes();
+});
+
 document.querySelectorAll('.tab').forEach(t => {
   t.addEventListener('click', () => {
     document.querySelectorAll('.tab').forEach(x => x.classList.remove('active'));
@@ -502,3 +601,4 @@ document.querySelectorAll('.tab').forEach(t => {
 
 fetchStatements();
 fetchTxns();
+fetchCodes();

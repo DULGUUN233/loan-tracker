@@ -65,6 +65,16 @@ const stmtSchema = new mongoose.Schema({
 });
 const Statement = mongoose.models.Statement || mongoose.model('Statement', stmtSchema);
 
+const codeSchema = new mongoose.Schema({
+  appName: { type: String, required: true },
+  username: { type: String, default: '' },
+  code: { type: String, required: true },
+  note: { type: String, default: '' },
+  createdAt: { type: Date, default: Date.now },
+  updatedAt: { type: Date, default: Date.now }
+});
+const AppCode = mongoose.models.AppCode || mongoose.model('AppCode', codeSchema);
+
 function categorize(desc, type) {
   const d = (desc || '').toUpperCase();
   if (type === 'income') {
@@ -231,6 +241,32 @@ app.put('/api/transactions/:id', async (req, res) => {
     const txn = await Txn.findByIdAndUpdate(req.params.id, { category: req.body.category }, { new: true });
     res.json(txn);
   } catch (e) { res.status(400).json({ error: e.message }); }
+});
+
+app.get('/api/codes', async (req, res) => {
+  try { res.json(await AppCode.find().sort({ appName: 1 })); }
+  catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post('/api/codes', async (req, res) => {
+  try {
+    const c = new AppCode(req.body);
+    await c.save();
+    res.json(c);
+  } catch (e) { res.status(400).json({ error: e.message }); }
+});
+
+app.put('/api/codes/:id', async (req, res) => {
+  try {
+    const c = await AppCode.findByIdAndUpdate(req.params.id,
+      { ...req.body, updatedAt: new Date() }, { new: true });
+    res.json(c);
+  } catch (e) { res.status(400).json({ error: e.message }); }
+});
+
+app.delete('/api/codes/:id', async (req, res) => {
+  try { await AppCode.findByIdAndDelete(req.params.id); res.json({ ok: true }); }
+  catch (e) { res.status(400).json({ error: e.message }); }
 });
 
 module.exports = app;

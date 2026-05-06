@@ -22,6 +22,7 @@
     <nav class="tabs">
       <button class="tab active" data-tab="loans">💰 Зээл</button>
       <button class="tab" data-tab="statement">📊 Дансны хуулга</button>
+      <button class="tab" data-tab="codes">🔐 Код</button>
     </nav>
   </header>
 
@@ -182,6 +183,27 @@
       </div>
     </section>
     </div><!-- /tab-statement -->
+
+    <div id="tab-codes" class="tab-pane">
+    <section class="panel">
+      <div class="panel-header">
+        <h2>🔐 Утасны апп код</h2>
+        <input id="codeSearch" class="search-input" placeholder="🔍 Хайх..." />
+      </div>
+      <form id="codeForm" class="form">
+        <div class="field"><label>Апп нэр</label><input name="appName" required placeholder="Pocket, LendMN, Khan Bank..." /></div>
+        <div class="field"><label>Хэрэглэгч / Утас</label><input name="username" placeholder="99XXXXXX эсвэл и-мэйл" /></div>
+        <div class="field"><label>Код / Нууц үг</label><input name="code" required placeholder="••••••" /></div>
+        <div class="field full"><label>Тэмдэглэл</label><input name="note" placeholder="Бичих хэрэгтэй мэдээ" /></div>
+        <div class="field full">
+          <button class="btn-primary" type="submit">+ Хадгалах</button>
+        </div>
+      </form>
+
+      <div id="codesList" class="codes-list"></div>
+      <div id="codesEmpty" class="empty">Код одоогоор алга. Дээрээс нэмнэ үү 👆</div>
+    </section>
+    </div><!-- /tab-codes -->
 
   </main>
 
