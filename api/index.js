@@ -2,7 +2,6 @@ const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
 const multer = require('multer');
-const { PDFParse } = require('pdf-parse');
 
 const app = express();
 app.use(cors());
@@ -189,6 +188,7 @@ app.delete('/api/loans/:id', async (req, res) => {
 app.post('/api/statements/upload', upload.single('pdf'), async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ error: 'no file' });
+    const { PDFParse } = require('pdf-parse');
     const parser = new PDFParse({ data: req.file.buffer });
     const result = await parser.getText();
     const txns = parseStatement(result.text);
