@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="mn">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Dulguun — Зээлийн хяналт</title>
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="bg-blob blob1"></div>
+  <div class="bg-blob blob2"></div>
+  <div class="bg-blob blob3"></div>
+
+  <header class="top">
+    <div class="brand">
+      <div class="logo">D</div>
+      <div>
+        <h1>Dulguun-ы зээлийн хяналт</h1>
+        <p class="sub">Бүх апп-ын зээлээ нэг дороос харах</p>
+      </div>
+    </div>
+  </header>
+
+  <main class="container">
+    <section class="dashboard">
+      <div class="donut-card panel">
+        <div class="panel-header"><h2>Хуваарилалт</h2></div>
+        <div class="donut-wrap">
+          <svg id="donut" viewBox="0 0 200 200" width="220" height="220"></svg>
+          <div class="donut-center">
+            <div class="dc-label">Үлдэгдэл</div>
+            <div class="dc-value" id="donutCenter">₮0</div>
+            <div class="dc-progress" id="donutProgress">0% төлсөн</div>
+          </div>
+        </div>
+        <div id="donutLegend" class="legend"></div>
+      </div>
+      <div class="stats-side">
+    <section class="stats">
+      <div class="stat-card grad-1">
+        <div class="stat-label">Нийт өр</div>
+        <div class="stat-value" id="totalAmount">₮0</div>
+      </div>
+      <div class="stat-card grad-2">
+        <div class="stat-label">Нийт хүү (одоогоор)</div>
+        <div class="stat-value" id="totalInterest">₮0</div>
+      </div>
+      <div class="stat-card grad-3">
+        <div class="stat-label">Идэвхтэй зээл</div>
+        <div class="stat-value" id="activeCount">0</div>
+      </div>
+      <div class="stat-card grad-4">
+        <div class="stat-label">Дараагийн төлбөр</div>
+        <div class="stat-value small" id="nextDue">—</div>
+      </div>
+      <div class="stat-card grad-5">
+        <div class="stat-label">Нийт төлсөн</div>
+        <div class="stat-value" id="totalPaid">₮0</div>
+      </div>
+      <div class="stat-card grad-6">
+        <div class="stat-label">Үлдэгдэл</div>
+        <div class="stat-value" id="totalRemaining">₮0</div>
+      </div>
+    </section>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-header">
+        <h2>Шинэ зээл нэмэх</h2>
+      </div>
+      <form id="loanForm" class="form">
+        <div class="field">
+          <label>Аппын нэр</label>
+          <input name="appName" required placeholder="Pocket, LendMN..." />
+        </div>
+        <div class="field">
+          <label>Зээлийн хэмжээ (₮)</label>
+          <input name="amount" type="number" step="0.01" min="0" required placeholder="500000" />
+        </div>
+        <div class="field">
+          <label>Жилийн хүү (%)</label>
+          <input name="interestRate" type="number" step="0.01" min="0" required placeholder="36" />
+        </div>
+        <div class="field">
+          <label>Авсан огноо</label>
+          <input name="startDate" type="date" />
+        </div>
+        <div class="field">
+          <label>Дуусах огноо</label>
+          <input name="dueDate" type="date" required />
+        </div>
+        <div class="field full">
+          <label>Тэмдэглэл</label>
+          <input name="note" placeholder="Сонголтот" />
+        </div>
+        <div class="field full">
+          <button class="btn-primary" type="submit">Нэмэх</button>
+        </div>
+      </form>
+    </section>
+
+    <section class="panel">
+      <div class="panel-header">
+        <h2>Зээлүүд (хугацаагаар)</h2>
+        <div class="filter">
+          <button class="chip active" data-filter="all">Бүгд</button>
+          <button class="chip" data-filter="active">Идэвхтэй</button>
+          <button class="chip" data-filter="paid">Төлсөн</button>
+        </div>
+      </div>
+      <div id="loanList" class="loan-list"></div>
+      <div id="emptyState" class="empty">Зээл одоогоор алга. Дээрээс нэмнэ үү 👆</div>
+    </section>
+  </main>
+
+  <script src="script.js"></script>
+</body>
+</html>
