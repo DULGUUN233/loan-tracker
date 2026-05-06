@@ -15,13 +15,18 @@
     <div class="brand">
       <div class="logo">D</div>
       <div>
-        <h1>Dulguun-ы зээлийн хяналт</h1>
-        <p class="sub">Бүх апп-ын зээлээ нэг дороос харах</p>
+        <h1>Dulguun — Санхүүгийн төв</h1>
+        <p class="sub">Зээл болон дансны хуулга нэг дороос</p>
       </div>
     </div>
+    <nav class="tabs">
+      <button class="tab active" data-tab="loans">💰 Зээл</button>
+      <button class="tab" data-tab="statement">📊 Дансны хуулга</button>
+    </nav>
   </header>
 
   <main class="container">
+    <div id="tab-loans" class="tab-pane active">
     <section class="dashboard">
       <div class="donut-card panel">
         <div class="panel-header"><h2>Хуваарилалт</h2></div>
@@ -112,6 +117,72 @@
       <div id="loanList" class="loan-list"></div>
       <div id="emptyState" class="empty">Зээл одоогоор алга. Дээрээс нэмнэ үү 👆</div>
     </section>
+    </div><!-- /tab-loans -->
+
+    <div id="tab-statement" class="tab-pane">
+    <section class="panel statement-section">
+      <div class="panel-header">
+        <h2>📄 Дансны хуулга шинжилгээ</h2>
+        <div class="filter">
+          <button class="chip period active" data-period="all">Бүгд</button>
+          <button class="chip period" data-period="week">7 хоног</button>
+          <button class="chip period" data-period="month">30 хоног</button>
+        </div>
+      </div>
+
+      <form id="uploadForm" class="upload-zone">
+        <input type="file" id="pdfFile" name="pdf" accept="application/pdf" hidden />
+        <label for="pdfFile" class="upload-label">
+          <div class="upload-icon">📥</div>
+          <div class="upload-text">Голомт банкны PDF хуулга чирж тавих эсвэл <u>сонгох</u></div>
+          <div class="upload-hint">7 хоног тутам upload хийгээрэй — хуучин гүйлгээг автоматаар таних</div>
+        </label>
+        <div id="uploadStatus" class="upload-status"></div>
+      </form>
+
+      <div id="statementsList" class="statements-list"></div>
+
+      <div class="stmt-stats">
+        <div class="stat-card grad-5"><div class="stat-label">Орлого</div><div class="stat-value" id="sIncome">₮0</div></div>
+        <div class="stat-card grad-2"><div class="stat-label">Зарлага</div><div class="stat-value" id="sExpense">₮0</div></div>
+        <div class="stat-card grad-6"><div class="stat-label">Цэвэр</div><div class="stat-value" id="sNet">₮0</div></div>
+        <div class="stat-card grad-4"><div class="stat-label">Гүйлгээ</div><div class="stat-value" id="sCount">0</div></div>
+      </div>
+
+      <div class="charts-grid">
+        <div class="chart-box">
+          <h3>Зарлагын ангилал</h3>
+          <div class="donut-wrap">
+            <svg id="catDonut" viewBox="0 0 200 200" width="200" height="200"></svg>
+            <div class="donut-center"><div class="dc-label">Нийт</div><div class="dc-value" id="catTotal">₮0</div></div>
+          </div>
+          <div id="catLegend" class="legend"></div>
+        </div>
+        <div class="chart-box">
+          <h3>Өдөр тутмын зарцуулалт</h3>
+          <svg id="dailyBar" viewBox="0 0 600 220" preserveAspectRatio="none"></svg>
+          <div class="bar-meta" id="dailyMeta"></div>
+        </div>
+      </div>
+
+      <div class="charts-grid">
+        <div class="chart-box">
+          <h3>🏪 ТОП зарцуулалттай газрууд</h3>
+          <div id="topMerchants" class="merchant-list"></div>
+        </div>
+        <div class="chart-box">
+          <h3>💡 Дүгнэлт</h3>
+          <div id="insights" class="insights"></div>
+        </div>
+      </div>
+
+      <div class="chart-box">
+        <h3>Гүйлгээний түүх</h3>
+        <div id="txnList" class="txn-list"></div>
+      </div>
+    </section>
+    </div><!-- /tab-statement -->
+
   </main>
 
   <script src="script.js"></script>

@@ -247,3 +247,258 @@ document.querySelector('input[name="startDate"]').value = new Date().toISOString
 
 fetchLoans();
 setInterval(fetchLoans, 60000);
+
+// ========== STATEMENT / TRANSACTIONS ==========
+
+const CAT_INFO = {
+  food:        { label: 'Хоол',         color: '#ff8e53', icon: '🍔' },
+  grocery:     { label: 'Хүнсний',      color: '#42d392', icon: '🛒' },
+  transport:   { label: 'Тээвэр',       color: '#5b8cff', icon: '🚕' },
+  qpay:        { label: 'QPay',         color: '#36e2c5', icon: '💳' },
+  entertainment:{label: 'Зугаа',        color: '#b56cff', icon: '🎮' },
+  telecom:     { label: 'Холбоо',       color: '#ffb74a', icon: '📱' },
+  health:      { label: 'Эрүүл мэнд',   color: '#ff5d7a', icon: '💊' },
+  service:     { label: 'Үйлчилгээ',    color: '#7c5cff', icon: '🧺' },
+  rent:        { label: 'Түрээс',       color: '#3056d3', icon: '🏠' },
+  loan:        { label: 'Зээл/StorePay',color: '#e84a8a', icon: '💰' },
+  fee:         { label: 'Шимтгэл',      color: '#888aa0', icon: '📎' },
+  transfer_out:{ label: 'Шилжүүлэг',    color: '#a08b6c', icon: '↗️' },
+  transfer_in: { label: 'Орсон',        color: '#42d392', icon: '↙️' },
+  salary:      { label: 'Цалин',        color: '#1a9aa6', icon: '💵' },
+  income:      { label: 'Орлого',       color: '#42d392', icon: '💵' },
+  other:       { label: 'Бусад',        color: '#9aa3bf', icon: '•' }
+};
+
+let txns = [];
+let statements = [];
+let txnPeriod = 'all';
+
+async function fetchStatements() {
+  const r = await fetch('/api/statements');
+  statements = await r.json();
+  renderStmts();
+}
+async function fetchTxns() {
+  const r = await fetch('/api/transactions?limit=5000');
+  txns = (await r.json()).map(t => ({ ...t, date: new Date(t.date) }));
+  renderStmtUI();
+}
+
+function renderStmts() {
+  const el = document.getElementById('statementsList');
+  if (statements.length === 0) { el.innerHTML = ''; return; }
+  el.innerHTML = statements.map(s => `
+    <div class="stmt-chip">
+      <span>📄 ${escapeHtml(s.fileName || 'statement')}</span>
+      <span class="stmt-period">${fmtDate(s.periodStart)} → ${fmtDate(s.periodEnd)} · ${s.txCount} гүйлгээ</span>
+      <button data-stmt-del="${s._id}" title="Устгах">✕</button>
+    </div>
+  `).join('');
+}
+
+function periodFilter(t) {
+  if (txnPeriod === 'all') return true;
+  const days = txnPeriod === 'week' ? 7 : 30;
+  const cutoff = new Date(Date.now() - days * 86400000);
+  return t.date >= cutoff;
+}
+
+function renderStmtUI() {
+  const filtered = txns.filter(periodFilter);
+  const inc = filtered.filter(t => t.type === 'income');
+  const exp = filtered.filter(t => t.type === 'expense');
+  const totalInc = inc.reduce((s, t) => s + t.amount, 0);
+  const totalExp = exp.reduce((s, t) => s + t.amount, 0);
+
+  document.getElementById('sIncome').textContent = fmt(totalInc);
+  document.getElementById('sExpense').textContent = fmt(totalExp);
+  const net = totalInc - totalExp;
+  document.getElementById('sNet').textContent = (net >= 0 ? '+' : '−') + fmt(Math.abs(net));
+  document.getElementById('sCount').textContent = filtered.length;
+
+  // Category donut
+  const byCat = {};
+  for (const t of exp) byCat[t.category] = (byCat[t.category] || 0) + t.amount;
+  const cats = Object.entries(byCat).sort((a, b) => b[1] - a[1]);
+
+  const svg = document.getElementById('catDonut');
+  const legend = document.getElementById('catLegend');
+  document.getElementById('catTotal').textContent = fmt(totalExp);
+  svg.innerHTML = '';
+  legend.innerHTML = '';
+  const cx = 100, cy = 100, r = 78, c = 2 * Math.PI * r;
+  svg.innerHTML += `<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="rgba(255,255,255,.06)" stroke-width="22"/>`;
+  let off = 0;
+  if (totalExp > 0) {
+    for (const [cat, val] of cats) {
+      const info = CAT_INFO[cat] || CAT_INFO.other;
+      const len = c * (val / totalExp);
+      svg.innerHTML += `<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${info.color}" stroke-width="22" stroke-dasharray="${len} ${c-len}" stroke-dashoffset="${-off}"/>`;
+      off += len;
+      legend.innerHTML += `<div class="legend-item">
+        <span class="legend-dot" style="background:${info.color}"></span>
+        <span class="legend-name">${info.icon} ${info.label}</span>
+        <span class="legend-val">${fmt(val)} · ${(val/totalExp*100).toFixed(0)}%</span>
+      </div>`;
+    }
+  } else {
+    legend.innerHTML = '<div class="no-pay">Зарлага алга</div>';
+  }
+  svg.style.transform = 'rotate(-90deg)';
+
+  // Daily bar
+  const byDay = {};
+  for (const t of exp) {
+    const k = new Date(t.date).toISOString().slice(0, 10);
+    byDay[k] = (byDay[k] || 0) + t.amount;
+  }
+  const days = Object.entries(byDay).sort();
+  const bar = document.getElementById('dailyBar');
+  bar.innerHTML = '';
+  if (days.length > 0) {
+    const max = Math.max(...days.map(d => d[1]));
+    const w = 600, h = 200, pad = 20;
+    const bw = (w - pad * 2) / days.length;
+    days.forEach(([d, v], i) => {
+      const bh = (v / max) * (h - pad - 20);
+      const x = pad + i * bw;
+      const y = h - pad - bh;
+      bar.innerHTML += `<rect x="${x+1}" y="${y}" width="${Math.max(bw-2,1)}" height="${bh}" fill="url(#barGrad)" rx="2"><title>${d}: ${fmt(v)}</title></rect>`;
+    });
+    bar.innerHTML = `<defs><linearGradient id="barGrad" x1="0" x2="0" y1="0" y2="1"><stop offset="0%" stop-color="#7c5cff"/><stop offset="100%" stop-color="#36e2c5"/></linearGradient></defs>` + bar.innerHTML;
+    document.getElementById('dailyMeta').textContent = `${days.length} өдөр · дундаж ₮${Math.round(totalExp/days.length).toLocaleString('mn-MN')}/өдөр · хамгийн их ${fmt(max)}`;
+  } else {
+    document.getElementById('dailyMeta').textContent = '';
+  }
+
+  // Top merchants
+  const byMerch = {};
+  for (const t of exp) {
+    const key = t.merchant || categorizeFallback(t.description);
+    if (!key) continue;
+    if (!byMerch[key]) byMerch[key] = { count: 0, total: 0 };
+    byMerch[key].count++;
+    byMerch[key].total += t.amount;
+  }
+  const top = Object.entries(byMerch).sort((a, b) => b[1].total - a[1].total).slice(0, 10);
+  document.getElementById('topMerchants').innerHTML = top.length === 0
+    ? '<div class="no-pay">Дата алга</div>'
+    : top.map(([n, v]) => `<div class="merchant-row">
+        <span class="m-name">${escapeHtml(n)}</span>
+        <span class="m-cnt">${v.count}x</span>
+        <span class="m-amt">${fmt(v.total)}</span>
+      </div>`).join('');
+
+  // Insights
+  renderInsights(filtered, inc, exp, totalInc, totalExp, byCat, byDay);
+
+  // Txn list
+  const list = document.getElementById('txnList');
+  list.innerHTML = filtered.slice(0, 200).map(t => {
+    const info = CAT_INFO[t.category] || CAT_INFO.other;
+    return `<div class="txn-row ${t.type}">
+      <span class="t-date">${fmtDate(t.date)}</span>
+      <span class="t-desc">${escapeHtml(t.merchant || t.description.slice(0, 60))}</span>
+      <span class="t-cat" style="background:${info.color}33;color:${info.color}">${info.icon} ${info.label}</span>
+      <span class="t-amt">${t.type==='income'?'+':'−'}${fmt(t.amount)}</span>
+    </div>`;
+  }).join('') || '<div class="no-pay">PDF upload хийгээд эхлээрэй</div>';
+}
+
+function categorizeFallback(d) {
+  return (d || '').slice(0, 30);
+}
+
+function renderInsights(all, inc, exp, totalInc, totalExp, byCat, byDay) {
+  const ins = document.getElementById('insights');
+  const out = [];
+  const net = totalInc - totalExp;
+  if (totalExp > 0) {
+    if (net < 0) out.push({ type: 'danger', text: `Зарлага орлогоос <strong>${fmt(Math.abs(net))}</strong>-р их байна. Хэрэглээгээ хянах хэрэгтэй.` });
+    else if (net > 0) out.push({ type: 'ok', text: `Цэвэр хадгаламж <strong>${fmt(net)}</strong>. Сайн байна! 👏` });
+  }
+  const days = Object.keys(byDay).length;
+  if (days > 0) {
+    const avg = totalExp / days;
+    out.push({ type: '', text: `Өдөрт дунджаар <strong>${fmt(Math.round(avg))}</strong> зарцуулж байна.` });
+  }
+  const sorted = Object.entries(byCat).sort((a, b) => b[1] - a[1]);
+  if (sorted[0]) {
+    const [cat, val] = sorted[0];
+    const info = CAT_INFO[cat] || CAT_INFO.other;
+    const pct = (val / totalExp * 100).toFixed(0);
+    out.push({ type: 'warn', text: `Хамгийн их зарцуулалт: <strong>${info.icon} ${info.label}</strong> — ${fmt(val)} (${pct}%)` });
+  }
+  const fees = exp.filter(t => t.category === 'fee').reduce((s, t) => s + t.amount, 0);
+  if (fees > 1000) out.push({ type: 'warn', text: `Гүйлгээний шимтгэлд <strong>${fmt(fees)}</strong> алджээ. SocialPay ашигла, шимтгэлгүй.` });
+  const loans = exp.filter(t => t.category === 'loan').reduce((s, t) => s + t.amount, 0);
+  if (loans > 0) out.push({ type: 'danger', text: `Зээлийн төлбөрт <strong>${fmt(loans)}</strong> явсан.` });
+  ins.innerHTML = out.length === 0
+    ? '<div class="insight">Дата хүлээгдэж байна. PDF upload хийгээрэй.</div>'
+    : out.map(o => `<div class="insight ${o.type}">${o.text}</div>`).join('');
+}
+
+document.getElementById('uploadForm').addEventListener('change', async e => {
+  const f = e.target.files?.[0];
+  if (!f) return;
+  await uploadPdf(f);
+});
+
+const uz = document.querySelector('.upload-zone');
+uz.addEventListener('dragover', e => { e.preventDefault(); uz.classList.add('drag'); });
+uz.addEventListener('dragleave', () => uz.classList.remove('drag'));
+uz.addEventListener('drop', async e => {
+  e.preventDefault();
+  uz.classList.remove('drag');
+  const f = e.dataTransfer.files?.[0];
+  if (f) await uploadPdf(f);
+});
+
+async function uploadPdf(file) {
+  const status = document.getElementById('uploadStatus');
+  status.className = 'upload-status loading';
+  status.textContent = '⏳ Боловсруулж байна...';
+  const fd = new FormData();
+  fd.append('pdf', file);
+  try {
+    const r = await fetch('/api/statements/upload', { method: 'POST', body: fd });
+    const j = await r.json();
+    if (!r.ok) throw new Error(j.error || 'upload failed');
+    status.className = 'upload-status ok';
+    status.textContent = `✓ ${j.inserted} шинэ гүйлгээ оруулсан · ${j.duplicates} давхардсан`;
+    document.getElementById('pdfFile').value = '';
+    await Promise.all([fetchStatements(), fetchTxns()]);
+  } catch (e) {
+    status.className = 'upload-status err';
+    status.textContent = '✗ ' + e.message;
+  }
+}
+
+document.getElementById('statementsList').addEventListener('click', async e => {
+  const btn = e.target.closest('button[data-stmt-del]');
+  if (!btn) return;
+  if (!confirm('Энэ хуулга болон бүх гүйлгээг устгах уу?')) return;
+  await fetch('/api/statements/' + btn.dataset.stmtDel, { method: 'DELETE' });
+  await Promise.all([fetchStatements(), fetchTxns()]);
+});
+
+document.querySelectorAll('.chip.period').forEach(c => {
+  c.addEventListener('click', () => {
+    document.querySelectorAll('.chip.period').forEach(x => x.classList.remove('active'));
+    c.classList.add('active');
+    txnPeriod = c.dataset.period;
+    renderStmtUI();
+  });
+});
+
+document.querySelectorAll('.tab').forEach(t => {
+  t.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(x => x.classList.remove('active'));
+    document.querySelectorAll('.tab-pane').forEach(x => x.classList.remove('active'));
+    t.classList.add('active');
+    document.getElementById('tab-' + t.dataset.tab).classList.add('active');
+  });
+});
+
+fetchStatements();
+fetchTxns();
