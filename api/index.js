@@ -99,37 +99,24 @@ function extractMerchant(desc) {
 }
 
 function parseStatement(text) {
-  const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
   const txns = [];
+  const re = /(\d{4}-\d{2}-\d{2})(?=\s)|(\d{1,3}(?:,\d{3})*\.\d{2})\s+(ЗАРЛАГА|ОРЛОГО)\s+(.+?)\s*\(Ханш:\s*[\d.]+\s*\)/g;
   let curDate = null;
-  let buf = null;
-  const txStart = /^([\d,]+\.\d{2})\s+(ЗАРЛАГА|ОРЛОГО)\s+(.+)$/;
-  const dateOnly = /^(\d{4}-\d{2}-\d{2})$/;
-  const skip = /ӨДРИЙН|ЭХНИЙ ҮЛДЭГДЭЛ|ХУУДАС|БАНК ЭНЭХҮҮ|ХАМРАХ|ХАРИЛЦАГЧ|ОГНОО$|DATE$|ДҮН|ВАЛЮТ|ТӨРӨЛ|ГҮЙЛГЭЭНИЙ|ХУУЛГА|ГОЛОМТ|FIVUSR|^-- /i;
-  const flush = () => { if (buf) { txns.push(buf); buf = null; } };
-  for (const ln of lines) {
-    if (dateOnly.test(ln)) { flush(); curDate = ln; continue; }
-    if (skip.test(ln)) { flush(); continue; }
-    const m = txStart.exec(ln);
-    if (m && curDate) {
-      flush();
-      const type = m[2] === 'ОРЛОГО' ? 'income' : 'expense';
-      const desc = m[3];
-      buf = {
-        date: new Date(curDate + 'T00:00:00Z'),
-        amount: parseFloat(m[1].replace(/,/g, '')),
-        type,
-        description: desc
-      };
-      continue;
-    }
-    if (buf) buf.description += ' ' + ln;
-  }
-  flush();
-  for (const t of txns) {
-    t.category = categorize(t.description, t.type);
-    t.merchant = extractMerchant(t.description);
-    t.hash = `${t.date.toISOString().slice(0,10)}|${t.amount}|${t.type}|${(t.description||'').slice(0,80)}`;
+  let m;
+  while ((m = re.exec(text)) !== null) {
+    if (m[1]) { curDate = m[1]; continue; }
+    if (!curDate) continue;
+    const type = m[3] === 'ОРЛОГО' ? 'income' : 'expense';
+    const desc = m[4].trim().replace(/\s+/g, ' ');
+    const amount = parseFloat(m[2].replace(/,/g, ''));
+    const t = {
+      date: new Date(curDate + 'T00:00:00Z'),
+      amount, type, description: desc,
+      category: categorize(desc, type),
+      merchant: extractMerchant(desc),
+      hash: `${curDate}|${amount}|${type}|${desc.slice(0,80)}`
+    };
+    txns.push(t);
   }
   return txns;
 }
@@ -188,10 +175,9 @@ app.delete('/api/loans/:id', async (req, res) => {
 app.post('/api/statements/upload', upload.single('pdf'), async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ error: 'no file' });
-    const { PDFParse } = require('pdf-parse');
-    const parser = new PDFParse({ data: req.file.buffer });
-    const result = await parser.getText();
-    const txns = parseStatement(result.text);
+    const { extractText } = await import('unpdf');
+    const { text } = await extractText(new Uint8Array(req.file.buffer), { mergePages: true });
+    const txns = parseStatement(text);
     if (txns.length === 0) return res.status(400).json({ error: 'No transactions parsed. Make sure it is a Goloth bank statement.' });
     const dates = txns.map(t => t.date.getTime());
     const totalIncome = txns.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0);
